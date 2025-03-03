@@ -3,6 +3,7 @@ import subprocess
 import json
 import time
 import datetime
+import sys
 from typing import Dict, List, Tuple
 
 # --------------------------
@@ -44,6 +45,9 @@ INTERVAL = 5
 
 # IPMI命令模板（十六进制参数）
 IPMI_TEMPLATE = 'sudo ipmitool raw 0x3c 0x30 0x00 {fan_id} {speed}'
+
+# 退出时转速百分比
+EXIT_SAFE_SPEED = 50
 
 # --------------------------
 # 功能函数（通常无需修改）
@@ -151,6 +155,18 @@ def validate_config(sensor_data: Dict):
                     "请检查硬件连接和配置"
                 )
 
+def signal_handler(sig, frame):
+    """处理系统信号"""
+    safety_reset()
+    sys.exit(0)
+
+def safety_reset():
+    """退出时恢复预设转速"""
+    print("\n退出时恢复预设转速")
+    
+    set_fan_speed(0, EXIT_SAFE_SPEED)
+    print('')
+
 def main_loop():
     """主控制循环"""
     try:
@@ -186,4 +202,11 @@ def main_loop():
             time.sleep(INTERVAL)
 
 if __name__ == "__main__":
-    main_loop()
+    import signal
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    try:
+        main_loop()
+    finally:
+        safety_reset()

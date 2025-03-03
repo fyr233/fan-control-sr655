@@ -55,7 +55,7 @@ FAN_CONFIG = {
 
 # 转速控制分段线性曲线（温度℃, 转速百分比），按温度升序排列
 SPEED_CURVE = [
-    (40, 5),   # ≤40℃: 30%
+    (40, 5),   # ≤40℃: 5%
     (50, 8),   
     (60, 15),
     (70, 40),
@@ -63,19 +63,57 @@ SPEED_CURVE = [
     (90, 60),
     (95, 100)   # ≥95℃: 100%
 ]
+
+# 脚本退出时转速百分比
+EXIT_SAFE_SPEED = 50
 ```
 风扇编号参考：
 ![alt text](image.png)
 
 4. 运行监控
-推荐将ipmitool设为无需密码的sudo命令
+- 推荐将ipmitool设为无需密码的sudo命令
 ```bash
 # 允许无密码执行ipmitool
 echo "$USER ALL=(ALL) NOPASSWD: /usr/bin/ipmitool" | sudo tee /etc/sudoers.d/ipmi
 ```
-启动脚本
+- 启动脚本
 ```bash
-python fan_control.py
+python3 fan_control.py
+```
+
+- （可选）设置为服务，开机自启（Ubuntu22）
+```bash
+sudo nano /etc/systemd/system/fan-control.service
+```
+
+```bash
+[Unit]
+Description=Dynamic Fan Control Service
+After=multi-user.target
+
+[Service]
+Type=exec
+User=root
+ExecStart=python3 /path/to/fan-control-sr655/main.py
+ExecStop=ipmitool raw 0x3c 0x30 0x00 0x00 0x32
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+
+```
+其中ExecStop表示脚本异常退出后将全部风扇设置为50%转速
+
+```bash
+# 启用开机启动
+sudo systemctl enable fan-control
+
+# 启动服务
+sudo systemctl start fan-control
+
+# 查看状态
+systemctl status fan-control
 ```
 
 5. 硬件验证
